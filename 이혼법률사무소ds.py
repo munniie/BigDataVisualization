@@ -219,6 +219,115 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from google.colab import files
 import numpy as np
+from matplotlib.colors import LinearSegmentedColormap, PowerNorm
+
+# ✅ Matplotlib 한글 폰트 설정
+try:
+    plt.rc('font', family='NanumGothic')
+    plt.rcParams['axes.unicode_minus'] = False
+except:
+    plt.rcParams['axes.unicode_minus'] = False
+
+# 설문 문항 리스트 (라벨로 사용)
+heatmap_features = [
+    'Atr8','Atr9','Atr11','Atr12','Atr14','Atr15','Atr16','Atr17','Atr18','Atr19',
+    'Atr20','Atr25','Atr26','Atr27','Atr28','Atr30','Atr36','Atr37','Atr39','Atr40','Atr41'
+]
+
+# 파일 업로드
+print("'divorce_revised_selected_upper.xlsx' 파일을 업로드하세요.")
+uploaded = files.upload()
+
+df = pd.read_excel('/content/divorce_revised_selected_upper.xlsx')
+
+# 데이터셋에 존재하는 변수만 사용
+valid_features = [col for col in heatmap_features if col in df.columns]
+if not valid_features:
+    raise SystemExit("⚠ 데이터셋에 해당 변수 없음")
+
+# 상관계수 계산
+corr_matrix = df[valid_features].corr()
+
+# 번호 매핑 삭제 → Atr8, Atr9 그대로 사용
+corr_matrix.index = valid_features
+corr_matrix.columns = valid_features
+
+# 파스텔 Blue–Pink 팔레트
+blue_light  = "#eef6ff"
+blue_medium = "#bcd8ff"
+blue_dark   = "#7fb3ff"
+
+pink_light  = "#fff5fa"
+pink_medium = "#ffd6e8"
+pink_dark   = "#ff99c2"
+
+colors = [
+    blue_dark, blue_medium, blue_light,
+    pink_light, pink_medium, pink_dark
+]
+
+cmap = LinearSegmentedColormap.from_list("pastel_bluepink_best", colors)
+norm = PowerNorm(gamma=0.6)
+
+# 클러스터 히트맵 생성
+g = sns.clustermap(
+    corr_matrix,
+    cmap=cmap,
+    norm=norm,
+    linewidths=.4,
+    figsize=(15, 15),
+    row_cluster=False,
+    col_cluster=False,
+)
+
+# y축 라벨 (Atr 그대로)
+g.ax_heatmap.set_yticklabels(
+    g.ax_heatmap.get_ymajorticklabels(),
+    rotation=0,
+    fontsize=16
+)
+
+# x축 라벨 (Atr 그대로)
+g.ax_heatmap.set_xticklabels(
+    g.ax_heatmap.get_xmajorticklabels(),
+    rotation=45,
+    fontsize=14
+)
+
+# 히트맵 위치 가져오기
+heatmap_pos = g.ax_heatmap.get_position()
+
+# 🎛 컬러바 위치 조정
+cbar_width = 0.015
+spacing = 0.04
+
+g.cax.set_position([
+    heatmap_pos.x0 - cbar_width - spacing,
+    heatmap_pos.y0,
+    cbar_width,
+    heatmap_pos.height
+])
+g.cax.tick_params(labelsize=14)
+
+# 🏷 제목
+g.fig.text(
+    (heatmap_pos.x0 + heatmap_pos.x1) / 2,
+    heatmap_pos.y1 + 0.02,
+    "설문 문항 간 상관관계 클러스터 히트맵",
+    ha='center',
+    va='bottom',
+    fontsize=35,
+    fontweight='bold'
+)
+
+plt.show()
+plt.savefig("heatmap_highres.png", dpi=400, bbox_inches='tight')
+
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+from google.colab import files
+import numpy as np
 
 # Matplotlib 한글 폰트 설정
 try:
@@ -395,7 +504,7 @@ for col in feature_cols:
 
 import pandas as pd
 import matplotlib.pyplot as plt
-import seaborn as sns # Violin Plot 시각화를 위해 seaborn 사용
+import seaborn as sns
 from google.colab import files
 import numpy as np
 
@@ -412,77 +521,73 @@ QUESTION_MAP = {
     'Atr30': 'Know Social', 'Atr36': 'No Humiliation', 'Atr37': 'Calm Argument',
     'Atr39': 'Predictable Fight', 'Atr40': 'Fight Awareness', 'Atr41': 'Maintain Calm',
 }
+
 all_features = list(QUESTION_MAP.keys())
 
-
-
 # 파일 업로드
-# divorce_revised_selected_upper.xlsx 업로드
 print(" 'divorce_revised_selected_upper.xlsx' 파일을 업로드하세요.")
-uploaded = files.upload() # 업로드 창이 뜸
+uploaded = files.upload()
 
 # 파일 불러오기
 df = pd.read_excel('divorce_revised_selected_upper.xlsx')
 
-
-# 시각화: 바이올린 플롯 (클래스별 21개 개별 그림)
-
 print("\nVisualization: Generating 21 individual Violin Plots for score distribution by Marital Status.")
 
-# 플롯 생성을 위한 데이터프레임 준비
 valid_features = [col for col in all_features if col in df.columns]
 plot_df = df[valid_features + ['Class']].copy()
 
-# 클래스 라벨링 및 타입 변환
 plot_df['Class'] = plot_df['Class'].astype('category').replace(
     {0: 'Married (0)', 1: 'Divorced (1)'}
 )
 
-# 21개 모든 변수를 순회하며 개별 바이올린 플롯 생성
-for col in valid_features:
-    # 피규어(Figure) 및 축(Axes) 생성
-    fig, ax = plt.subplots(figsize=(7, 5))
+# 글씨 크기 확대
+title_font = 22
+label_font = 16
+tick_font = 14
+mean_font = 14
 
-    # 플롯 제목에 QUESTION_MAP을 사용하며, 없을 경우 컬럼 이름으로 대체
+for col in valid_features:
+    fig, ax = plt.subplots(figsize=(8, 6), dpi=1000)
+
     title_label = QUESTION_MAP.get(col, col)
 
-    # 바이올린 플롯 생성: X축=클래스, Y축=AtrX 점수
-    # split=True: 두 그룹의 분포를 하나의 바이올린에 대칭적으로 보여주어 비교 용이
-    # inner='quartile': 사분위수(중앙값, 25%, 75%)를 표시
     sns.violinplot(
         x='Class',
         y=col,
         data=plot_df,
         ax=ax,
-        palette={'Married (0)': '#c6dbef', 'Divorced (1)': '#08306b'}, # 파스텔 톤 색상으로 변경
+        palette={'Married (0)': '#c6dbef', 'Divorced (1)': '#08306b'},
         inner='quartile',
         linewidth=1.5
     )
 
-    # 각 그룹의 평균 선 계산 및 플롯 (선택 사항: 명확성을 위해)
+    # 평균 점수
     mean_scores = plot_df.groupby('Class')[col].mean()
+    ax.scatter([0, 1], [mean_scores['Married (0)'], mean_scores['Divorced (1)']],
+               color='black', s=120, zorder=3)
 
-    # 평균점 (점) 플롯
-    ax.scatter(x=[0, 1], y=[mean_scores['Married (0)'], mean_scores['Divorced (1)']],
-               color='black', zorder=3, s=80, label='Mean')
+    # 제목·축ラ벨·눈금 글씨 크기 UP
+    ax.set_title(f'Violin Plot: {title_label} ({col})',
+                 fontsize=title_font, fontweight='bold')
+    ax.set_xlabel('Marital Status (Class)', fontsize=label_font)
+    ax.set_ylabel('Response Score', fontsize=label_font)
 
-    # 제목 및 축 라벨 설정
-    ax.set_title(f'Violin Plot: {title_label} ({col})', fontsize=14, fontweight='bold')
-    ax.set_xlabel('Marital Status (Class)', fontsize=12)
-    ax.set_ylabel('Response Score', fontsize=12)
+    ax.tick_params(axis='both', labelsize=tick_font)
 
-    # Y축이 설문 점수 범위인 0부터 4를 포함하도록 설정
+    # Y축 범위
     ax.set_ylim(-0.5, 4.5)
-    ax.grid(axis='y', linestyle='--', alpha=0.7)
+    ax.grid(axis='y', linestyle='--', alpha=0.6)
 
-    # 평균 점수 주석 추가
-    ax.text(0, mean_scores['Married (0)'] - 0.4, f'Avg: {mean_scores["Married (0)"]:.2f}',
-            ha='center', color='black', fontweight='bold', fontsize=10)
-    ax.text(1, mean_scores['Divorced (1)'] - 0.4, f'Avg: {mean_scores["Divorced (1)"]:.2f}',
-            ha='center', color='black', fontweight='bold', fontsize=10)
+    # 평균 텍스트
+    ax.text(0, mean_scores['Married (0)'] - 0.25,
+            f'Avg: {mean_scores["Married (0)"]:.2f}',
+            ha='center', fontsize=mean_font, fontweight='bold')
+
+    ax.text(1, mean_scores['Divorced (1)'] - 0.25,
+            f'Avg: {mean_scores["Divorced (1)"]:.2f}',
+            ha='center', fontsize=mean_font, fontweight='bold')
 
     plt.tight_layout()
-    plt.figure(dpi=1000)
     plt.show()
 
 """# **전체 분포 분석 개요**
@@ -640,6 +745,34 @@ plot_tree(
 plt.title("Decision Tree using Top 21 Features", fontsize=16)
 plt.show()
 
+import matplotlib.pyplot as plt
+from sklearn.tree import plot_tree
+
+# 노드가 더 크게 보이도록 전체 폰트/레이아웃 조정
+plt.rcParams['font.size'] = 18          # 전체 폰트 크게
+plt.rcParams['axes.titlesize'] = 26
+plt.rcParams['figure.autolayout'] = True
+
+# 박스 내부 여백 커지도록
+plt.rcParams['patch.linewidth'] = 2
+plt.rcParams['patch.edgecolor'] = 'black'
+
+# ▶▶ 여기서 figsize를 매우 크게 설정하여 노드도 강제로 커짐
+plt.figure(figsize=(42, 32), dpi=800)
+
+plot_tree(
+    dt,
+    feature_names=top_features,
+    class_names=["Not divorce", "Divorce"],
+    filled=True,
+    rounded=True,
+    proportion=False,     # 🔥 노드를 비율 기준이 아닌 절대 크기로 표현
+    fontsize=18           # 🔥 노드 내부 글씨 크게 → 박스도 커짐
+)
+
+plt.title("Decision Tree (Top 21 Features)", fontsize=28, fontweight="bold")
+plt.show()
+
 """### 결과 해석
 --------------------------------
 1. 결정 트리 전체 해석
@@ -781,7 +914,7 @@ else:
 # ----------------------------------------------------------
 # 6. SHAP Summary Plot (Top 21 features)
 # ----------------------------------------------------------
-plt.figure(figsize=(8, 10))
+plt.figure(figsize=(8, 10), dpi=1000)
 shap.summary_plot(
     shap_values_to_plot,  # 각 샘플×특성의 SHAP 값
     X_top,                # 상위 21개 문항만 포함된 데이터프레임
@@ -961,8 +1094,50 @@ shap.force_plot(
 - idx=4 사람은 위험 신호와 보호 신호가 섞여 있기 때문에
 - 평균보다 이혼 가능성은 높지만(0.66), high case처럼 극단적으로 위험하지는 않은 ‘경계선 사례’이다.
 - 특정 문항에서는 문제를 보이지만, 다른 문항에서는 관계를 지켜주는 요소도 존재한다.
+"""
 
-## 결과 해석
+import matplotlib.pyplot as plt
+import shap
+
+plt.rcParams['font.size'] = 16  # 전체 글씨는 적당히 크게
+
+idx_list  = [1, 84, 4]
+name_list = ["high", "low", "mid"]
+
+for idx, name in zip(idx_list, name_list):
+    # 1) 새 그림 생성 (크게, 고해상도)
+    plt.figure(figsize=(18, 4), dpi=400)
+
+    # 2) matplotlib 버전 force plot
+    shap.plots.force(
+        expected_value_class1,        # base value
+        shap_values_class1[idx, :],   # SHAP 값
+        X_top.iloc[idx, :],           # 특성 값
+        matplotlib=True,
+        show=False
+    )
+
+    # 3) f(x) 라벨만 찾아서 지우기 / 줄이기
+    fig = plt.gcf()
+    for ax in fig.axes:
+        for txt in ax.texts:
+            if "f(x)" in txt.get_text():
+                # 방법 1: 아예 숨기기
+                txt.set_visible(False)
+                # 방법 2(숨기기 대신 쓰고 싶으면): txt.set_fontsize(10)
+
+    plt.tight_layout()
+
+    # 4) 초고해상도 저장
+    plt.savefig(f"force_plot_{name}_1200dpi.png",
+                dpi=1200, bbox_inches="tight")
+    plt.savefig(f"force_plot_{name}.svg",
+                bbox_inches="tight")
+
+    plt.show()
+    plt.close()
+
+"""## 결과 해석
 
 1. force plot이란?
 -  한 사람(한 샘플)의 예측값이 '전체 평균(base value)'에서 '최종 예측값(output value)'으로 변하는 과정을 보여주는 원인 분석 그래프
@@ -1015,11 +1190,11 @@ for cls in [0, 1]:
         distances = np.linalg.norm(cluster_points.values - centers[i], axis=1)
         nearest_local = np.argmin(distances)
 
-        rep_idx.append(int(cluster_idx[nearest_local]))  # 🔥 반드시 int로 변환
+        rep_idx.append(int(cluster_idx[nearest_local]))
 
     representatives[cls] = rep_idx
 
-print("\n📌 클래스별 대표 샘플 인덱스 (정수형으로 출력):")
+print("\n 클래스별 대표 샘플 인덱스 (정수형으로 출력):")
 for cls in representatives:
     print(f"Class {cls}: {representatives[cls]}")
 
@@ -1053,7 +1228,7 @@ for cls in [0, 1]:
     labels_cls = kmeans.labels_
 
     # ---- 시각화 ----
-    plt.figure(figsize=(7, 6), dpi = 500)
+    plt.figure(figsize=(7, 6), dpi = 1000)
     scatter = plt.scatter(
         X_cls_pca[:, 0],
         X_cls_pca[:, 1],
@@ -1105,7 +1280,7 @@ for cls in representatives:
         )
 
         shap.plots.waterfall(expl, max_display=21)
-        plt.figure(dpi=1000)
+        plt.figure(dpi=1200)
 
 """# 5. SHAP decision plot - 유림"""
 
@@ -1137,7 +1312,15 @@ import matplotlib.pyplot as plt
 import shap
 import numpy as np
 
-# 1) 이혼 확률 기반으로 대표 샘플 3명 선택
+# 폰트 크기 전체 확대 ------------------------
+plt.rcParams['font.size'] = 18          # 기본 글씨 크기
+plt.rcParams['axes.titlesize'] = 20     # 제목 크기
+plt.rcParams['axes.labelsize'] = 20     # 축 라벨 크기
+plt.rcParams['xtick.labelsize'] = 20    # X축 tick
+plt.rcParams['ytick.labelsize'] = 20    # Y축 tick
+plt.rcParams['legend.fontsize'] = 15    # 범례 글씨 크기
+
+# 1) 이혼 확률 기반 대표 샘플
 probs = rf_top.predict_proba(X_top)[:, 1]
 
 idx_high = np.argmax(probs)
@@ -1146,25 +1329,35 @@ idx_mid  = np.argsort(np.abs(probs - 0.5))[0]
 
 sample_idx = [idx_high, idx_low, idx_mid]
 
-# 2) SHAP expected value 정리
+# 2) Expected Value 가져오기
 ev = explainer.expected_value
 if isinstance(ev, (list, np.ndarray)):
     expected_value_class1 = ev[1] if len(ev) > 1 else ev[0]
 else:
     expected_value_class1 = ev
 
-# 3) feature 이름을 list로 바꿔 SHAP에 전달
+# 3) feature 이름
 feature_names = list(X_top.columns)
 
-# 4) SHAP Decision Plot
+# ----------------------------------------------------------
+# SHAP Decision Plot
+# ----------------------------------------------------------
+plt.figure(figsize=(14, 20), dpi=1200)
+
 shap.decision_plot(
-    expected_value_class1,                # base value
-    shap_values_to_plot[sample_idx, :],   # SHAP values for selected samples
+    expected_value_class1,
+    shap_values_to_plot[sample_idx, :],
     feature_names=feature_names,
     legend_labels=[
         f"High (idx={idx_high})",
         f"Low (idx={idx_low})",
         f"Mid (idx={idx_mid})"
     ],
-    legend_location="upper right"
+    legend_location="best",
+    show=False
 )
+
+plt.tight_layout()
+plt.savefig("shap_decision_plot_highres_fontlarge.png", dpi=1200)
+plt.show()
+
